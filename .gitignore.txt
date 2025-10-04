@@ -1,0 +1,20 @@
+# Скомпилированные классы
+*.class
+
+# Папки сборки
+target/
+build/
+out/
+bin/
+
+# Файлы IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Логи и системные файлы
+*.log
+*.tmp
