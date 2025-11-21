@@ -194,6 +194,136 @@ public class GraphEditor extends JPanel implements MouseListener, MouseMotionLis
         repaint();
     }
 
-    
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        if (SwingUtilities.isLeftMouseButton(e)) {
+            if (selectionRect != null && Math.abs(selectionRect.width) > 5 &&
+                    Math.abs(selectionRect.height) > 5) {
+
+                zoomHistory.push(new Rectangle2D.Double(
+                        currentView.x, currentView.y, currentView.width, currentView.height
+                ));
+
+                // Нормализуем прямоугольник выделения
+                double x1 = selectionRect.x;
+                double y1 = selectionRect.y;
+                double x2 = selectionRect.x + selectionRect.width;
+                double y2 = selectionRect.y + selectionRect.height;
+
+                currentView = new Rectangle2D.Double(
+                        Math.min(x1, x2), Math.min(y1, y2),
+                        Math.abs(x2 - x1), Math.abs(y2 - y1)
+                );
+            }
+
+            selectionRect = null;
+            isDraggingPoint = false;
+            draggedPoint = null;
+        }
+        else if (SwingUtilities.isRightMouseButton(e)) {
+            // Восстановление масштаба на шаг назад
+            if (!zoomHistory.isEmpty()) {
+                currentView = zoomHistory.pop();
+            }
+        }
+
+        repaint();
+    }
+
+    @Override
+    public void mouseMoved(MouseEvent e) {
+        Point2D.Double dataPoint = screenToData(e.getPoint());
+        hoverPoint = findNearestPoint(dataPoint, HOVER_RADIUS);
+        repaint();
+    }
+
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        Point2D.Double dataPoint = screenToData(e.getPoint());
+
+        if (isDraggingPoint && draggedPoint != null) {
+            // Изменение Y координаты точки
+            draggedPoint.y = dataPoint.y;
+        }
+        else if (dragStart != null) {
+            // Обновление прямоугольника выделения
+            Point2D.Double startData = screenToData(dragStart);
+            selectionRect = new Rectangle2D.Double(
+                    startData.x, startData.y,
+                    dataPoint.x - startData.x,
+                    dataPoint.y - startData.y
+            );
+        }
+
+        repaint();
+    }
+
+    // Остальные методы MouseListener и MouseMotionListener
+    @Override public void mouseClicked(MouseEvent e) {}
+    @Override public void mouseEntered(MouseEvent e) {}
+    @Override public void mouseExited(MouseEvent e) {}
+
+    public void saveToFile(File file) throws IOException {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+            for (Point2D.Double point : points) {
+                writer.printf("%.6f,%.6f%n", point.x, point.y);
+            }
+        }
+    }
+
+    public void resetToOriginal() {
+        points.clear();
+        points.addAll(originalPoints);
+        currentView = calculateDataBounds();
+        zoomHistory.clear();
+        repaint();
+    }
+
+    // создания тестовых данных
+    public static List<Point2D.Double> createSampleData() {
+        List<Point2D.Double> data = new ArrayList<>();
+        for (double x = -10; x <= 10; x += 0.5) {
+            double y = x * x; // y = x²
+            data.add(new Point2D.Double(x, y));
+        }
+        return data;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Graph Editor - Вариант C");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+            GraphEditor graphEditor = new GraphEditor(createSampleData());
+
+            // Панель управления
+            JPanel controlPanel = new JPanel();
+            JButton saveButton = new JButton("Сохранить в файл");
+            JButton resetButton = new JButton("Сбросить");
+
+            saveButton.addActionListener(e -> {
+                JFileChooser fileChooser = new JFileChooser();
+                if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                    try {
+                        graphEditor.saveToFile(fileChooser.getSelectedFile());
+                        JOptionPane.showMessageDialog(frame, "Данные успешно сохранены!");
+                    } catch (IOException ex) {
+                        JOptionPane.showMessageDialog(frame, "Ошибка сохранения: " + ex.getMessage());
+                    }
+                }
+            });
+
+            resetButton.addActionListener(e -> graphEditor.resetToOriginal());
+
+            controlPanel.add(saveButton);
+            controlPanel.add(resetButton);
+
+            frame.add(graphEditor, BorderLayout.CENTER);
+            frame.add(controlPanel, BorderLayout.SOUTH);
+
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
     }
 }
